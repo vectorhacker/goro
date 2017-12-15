@@ -10,7 +10,7 @@ TODO:
 
 - [ ] Competing Consumers
 - [ ] Projections
-- [_] Read Events
+- [ ] Read Events
     - [x] Read One Event
     - [ ] Stream Events
 - [x] Write Events
