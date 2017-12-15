@@ -1,10 +1,13 @@
 package goro
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"sort"
 
 	"github.com/pkg/errors"
 )
@@ -91,14 +94,19 @@ func (c *Client) Read(ctx context.Context, stream string, version int64) (*Event
 	go func() {
 		var event *Event
 
-		url := fmt.Sprintf("%s/streams/%s/%d/forward/1", c.hostPort(), stream, version)
-		req, err := http.NewRequest(http.MethodGet, url, nil)
+		uri := fmt.Sprintf("%s/streams/%s/%d/forward/1", c.hostPort(), stream, version)
+		req, err := http.NewRequest(http.MethodGet, uri, nil)
 		if err != nil {
 			errc <- errors.Wrap(err, "Unable to create request to database")
 			return
 		}
 
-		req.URL.Query().Add("embed", "body")
+		// add context for cancelation of request
+		req = req.WithContext(ctx)
+
+		q := url.Values{}
+		q.Add("embed", "body")
+		req.URL.RawQuery = q.Encode()
 		req.Header.Add("Accept", "application/json")
 
 		c.addRequestOptions(req)
@@ -136,4 +144,69 @@ func (c *Client) Read(ctx context.Context, stream string, version int64) (*Event
 	case <-ctx.Done():
 		return nil, errors.Wrap(ctx.Err(), "Context closed.")
 	}
+}
+
+// Write implements the EventWriter interface
+func (c *Client) Write(ctx context.Context, stream string, events ...Event) error {
+
+	evs := Events{}
+	if len(events) == 0 {
+		return errors.New("can't save no events")
+	}
+
+	for _, ev := range events {
+		evs = append(evs, ev)
+	}
+
+	sort.Sort(evs)
+
+	errc := make(chan error)
+	go func() {
+
+		uri := fmt.Sprintf("%s/streams/%s", c.hostPort(), stream)
+		b := new(bytes.Buffer)
+
+		encoder := json.NewEncoder(b)
+		err := encoder.Encode(evs)
+		if err != nil {
+			errc <- errors.Wrap(err, "unable to encode request")
+		}
+
+		req, err := http.NewRequest(http.MethodPost, uri, b)
+		if err != nil {
+			errc <- errors.Wrap(err, "unable to make request")
+			return
+		}
+		req = req.WithContext(ctx)
+		req.Header.Add("Content-Type", "application/vnd.eventstore.events+json")
+		req.Header.Add("ES-ExpectedVersion", fmt.Sprintf("%d", evs[0].Version-1))
+
+		c.addRequestOptions(req)
+
+		resp, err := c.http.Do(req)
+		if err != nil {
+			errc <- errors.Wrap(err, "unable to make request")
+			return
+		}
+
+		if resp.StatusCode != http.StatusCreated {
+			errc <- errors.New("Unable to create")
+		}
+
+		select {
+		case errc <- nil:
+		case <-ctx.Done():
+			return
+		}
+	}()
+
+	select {
+	case err := <-errc:
+		if err != nil {
+			return err
+		}
+	case <-ctx.Done():
+	}
+
+	return nil
 }

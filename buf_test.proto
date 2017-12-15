@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package goro;
+
+message Test {
+    string Test = 1;
+}

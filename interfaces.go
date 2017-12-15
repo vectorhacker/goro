@@ -32,7 +32,7 @@ type EventStreamer interface {
 
 // EventWriter writes many events to a stream.
 type EventWriter interface {
-	Write(stream string, events ...Event) error
+	Write(ctx context.Context, stream string, events ...*Event) error
 }
 
 // EventReadWriter is a composite interface of EventReader
