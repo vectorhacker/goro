@@ -2,13 +2,13 @@ package goro
 
 import "context"
 
-// Direction specifcies the direction to point a stream at
+// Direction specifies the direction to point a stream at
 type Direction int
 
 // Direction enum
 const (
-	Forward Direction = iota
-	Backward
+	DirectionForward Direction = iota
+	DirectionBackward
 )
 
 // EventReader reads a single event from a stream

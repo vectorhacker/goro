@@ -23,7 +23,8 @@ func (r *RawData) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// Event represent an event to be stored.
+// Event represent an event to be stored or retrieved. It stores Data and Metadata as byte arrays.
+// It is up to the client to unmarshal the Data ane Metadata of the the event.
 type Event struct {
 	ID        uuid.UUID `json:"eventId"`
 	IsJSON    bool      `json:"isJson"`
@@ -56,7 +57,7 @@ func (e Events) Swap(i, j int) {
 	e[j] = temp
 }
 
-// Stream represents a stream of events
+// Stream represents a stream of events. This is used when streaming events from the Event Store
 type Stream <-chan StreamEvent
 
 // StreamEvent represents an event as part of a stream. It contains the Event

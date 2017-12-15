@@ -23,6 +23,9 @@ type streamResponse struct {
 	Links  []map[string]string `json:"links"`
 }
 
+// Client represents a client connection to an Event Store server.
+// It implements the EventReadWriteStreamer interface. The Client uses
+// http to connect to EventStore.
 type Client struct {
 	host        string
 	headers     map[string]string
@@ -30,16 +33,17 @@ type Client struct {
 	http        *http.Client
 }
 
+// ConnectionOption represents the different options to add to a client
 type ConnectionOption func(client *Client)
 
-// WithHostAndPort sets the host and port to use
+// WithHost sets the host to use
 func WithHost(host string) ConnectionOption {
 	return func(c *Client) {
 		c.host = host
 	}
 }
 
-// WithBasicAuth sets the basic authentication for calling Event Store
+// WithBasicAuth sets the basic authentication for calling Event Store.
 func WithBasicAuth(username, password string) ConnectionOption {
 	return func(c *Client) {
 		c.credentials = &basicAuthCredentials{
@@ -49,14 +53,15 @@ func WithBasicAuth(username, password string) ConnectionOption {
 	}
 }
 
-// WithHTTPClient sets the http.Client to use in the Event Store client
+// WithHTTPClient sets a custom http.Client to use for calling the EventStore.
 func WithHTTPClient(client *http.Client) ConnectionOption {
 	return func(c *Client) {
 		c.http = client
 	}
 }
 
-// Connect creates a new Client
+// Connect creates a new Client with the options set. It does not start a persistent connection,
+// since it uses the EventStore HTTP interface.
 func Connect(opts ...ConnectionOption) *Client {
 
 	client := &Client{
@@ -86,7 +91,7 @@ func (c *Client) addRequestOptions(req *http.Request) {
 	}
 }
 
-// Read implements the EventReader interface
+// Read implements the EventReader interface. It reads a single event from the store
 func (c *Client) Read(ctx context.Context, stream string, version int64) (*Event, error) {
 	eventc := make(chan *Event)
 	errc := make(chan error, 1)
@@ -146,7 +151,10 @@ func (c *Client) Read(ctx context.Context, stream string, version int64) (*Event
 	}
 }
 
-// Write implements the EventWriter interface
+// Write implements the EventWriter interface. It Write multiple events in batch. It will sort
+// the events given to it using the Version Number and sets the `ES-ExpectedVersion` header equal
+// to the Version of the first Event minus 1 i.e: `events[0].Version - 1`. It expects that the events
+// have different versions.
 func (c *Client) Write(ctx context.Context, stream string, events ...Event) error {
 
 	evs := Events{}
