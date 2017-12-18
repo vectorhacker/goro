@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 
@@ -224,4 +225,28 @@ func TestWriteEvent(t *testing.T) {
 
 	err = client.Write(ctx, "test", events...)
 	assert.Nil(err)
+}
+
+func TestStream(t *testing.T) {
+	assert := assert.New(t)
+
+	client := goro.Connect(goro.WithHost("http://localhost:2113"), goro.WithBasicAuth("admin", "changeit"))
+	ctx := context.Background()
+
+	ctx, _ = context.WithTimeout(ctx, 5*time.Second)
+
+	stream := client.Stream(ctx, "$projections-$master", goro.StreamingOptions{
+		Max: 50,
+	})
+
+	expectedSum := 1225
+	sum := 0
+
+	for stremEvent := range stream {
+		assert.Nil(stremEvent.Err)
+		t.Log(stremEvent.Event.ID, stremEvent.Event.Version)
+		sum += int(stremEvent.Event.Version)
+	}
+
+	assert.Equal(expectedSum, sum)
 }

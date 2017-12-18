@@ -3,12 +3,12 @@ package goro
 import "context"
 
 // Direction specifies the direction to point a stream at
-type Direction int
+type Direction string
 
 // Direction enum
 const (
-	DirectionForward Direction = iota
-	DirectionBackward
+	DirectionForward  Direction = "forward"
+	DirectionBackward           = "backward"
 )
 
 // EventReader reads a single event from a stream
@@ -19,15 +19,14 @@ type EventReader interface {
 // StreamingOptions sets the options for creating a stream of
 // events from an Event Store stream
 type StreamingOptions struct {
-	Start     int64
-	Max       int
-	Direction Direction // Default is forward
-	Poll      bool      // Specifies if long polling should be used
+	Start int64
+	Max   int
+	Poll  bool // Specifies if long polling should be used
 }
 
 // EventStreamer reads many events into a stream
 type EventStreamer interface {
-	Stream(ctx context.Context, stream string, opts StreamingOptions) (Stream, chan error)
+	Stream(ctx context.Context, stream string, opts StreamingOptions) Stream
 }
 
 // EventWriter writes many events to a stream.

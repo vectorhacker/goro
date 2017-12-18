@@ -37,7 +37,7 @@ type Event struct {
 }
 
 // Events is an array of events. It impelements the sort.Interface interface
-type Events []Event
+type Events []*Event
 
 // Len implements the sort.Interface interface
 func (e Events) Len() int {
@@ -52,13 +52,11 @@ func (e Events) Less(i, j int) bool {
 
 // Swap implements the sort.Interface interface
 func (e Events) Swap(i, j int) {
-	temp := e[i]
-	e[i] = e[j]
-	e[j] = temp
+	e[i], e[j] = e[j], e[i]
 }
 
 // Stream represents a stream of events. This is used when streaming events from the Event Store
-type Stream <-chan StreamEvent
+type Stream chan StreamEvent
 
 // StreamEvent represents an event as part of a stream. It contains the Event
 // or an error if parsing an event failed

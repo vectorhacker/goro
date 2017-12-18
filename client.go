@@ -18,9 +18,8 @@ type basicAuthCredentials struct {
 }
 
 type streamResponse struct {
-	ID     string              `json:"streamId"`
-	Events []*Event            `json:"entries"`
-	Links  []map[string]string `json:"links"`
+	ID     string `json:"streamId"`
+	Events Events `json:"entries"`
 }
 
 // Client represents a client connection to an Event Store server.
@@ -155,7 +154,7 @@ func (c *Client) Read(ctx context.Context, stream string, version int64) (*Event
 // the events given to it using the Version Number and sets the `ES-ExpectedVersion` header equal
 // to the Version of the first Event minus 1 i.e: `events[0].Version - 1`. It expects that the events
 // have different versions.
-func (c *Client) Write(ctx context.Context, stream string, events ...Event) error {
+func (c *Client) Write(ctx context.Context, stream string, events ...*Event) error {
 
 	evs := Events{}
 	if len(events) == 0 {
@@ -217,4 +216,88 @@ func (c *Client) Write(ctx context.Context, stream string, events ...Event) erro
 	}
 
 	return nil
+}
+
+// Stream implements the EventStreamer interfaace. It wills tream multiple events. To stream backwards from the head,
+// use the start option of -1
+func (c *Client) Stream(ctx context.Context, stream string, opts StreamingOptions) Stream {
+
+	count := 20
+	s := make(Stream)
+
+	go func() {
+		defer close(s)
+
+		// start the next stream from the start
+		next := opts.Start
+
+		for {
+			uri := fmt.Sprintf("%s/streams/%s/%d/%s/%d", c.hostPort(), stream, next, DirectionForward, count)
+
+			req, err := http.NewRequest(http.MethodGet, uri, nil)
+			if err != nil {
+				s <- StreamEvent{
+					Err: err,
+				}
+			}
+
+			req = req.WithContext(ctx)
+
+			c.addRequestOptions(req)
+
+			if opts.Poll {
+				// LongPoll for 10 seconds if no results yet.
+				req.Header.Add("ES-LongPoll", "10")
+			}
+
+			q := req.URL.Query()
+			q.Add("embed", "body")
+			req.URL.RawQuery = q.Encode()
+
+			res, err := c.http.Do(req)
+			if err != nil {
+				s <- StreamEvent{
+					Err: err,
+				}
+			}
+
+			_stream := streamResponse{}
+
+			d := json.NewDecoder(res.Body)
+			err = d.Decode(&_stream)
+			if err != nil {
+				s <- StreamEvent{
+					Err: err,
+				}
+			}
+
+			sort.Sort(_stream.Events)
+
+			for i, event := range _stream.Events {
+				if opts.Max > 0 {
+					if i+int(next)+1 > opts.Max {
+						return
+					}
+				}
+
+				ev := StreamEvent{
+					Event: event,
+					Err:   nil,
+				}
+
+				select {
+				case s <- ev:
+				case <-ctx.Done():
+					s <- StreamEvent{
+						Err: errors.Wrap(ctx.Err(), "context stoped"),
+					}
+					return
+				}
+			}
+
+			next += int64(len(_stream.Events))
+		}
+	}()
+
+	return s
 }
