@@ -236,8 +236,8 @@ func (c *Client) Stream(ctx context.Context, stream string, opts StreamingOption
 
 			req, err := http.NewRequest(http.MethodGet, uri, nil)
 			if err != nil {
-				s <- StreamEvent{
-					Err: err,
+				s <- StreamMessage{
+					Error: err,
 				}
 			}
 
@@ -256,8 +256,8 @@ func (c *Client) Stream(ctx context.Context, stream string, opts StreamingOption
 
 			res, err := c.http.Do(req)
 			if err != nil {
-				s <- StreamEvent{
-					Err: err,
+				s <- StreamMessage{
+					Error: err,
 				}
 			}
 
@@ -266,8 +266,8 @@ func (c *Client) Stream(ctx context.Context, stream string, opts StreamingOption
 			d := json.NewDecoder(res.Body)
 			err = d.Decode(&_stream)
 			if err != nil {
-				s <- StreamEvent{
-					Err: err,
+				s <- StreamMessage{
+					Error: err,
 				}
 			}
 
@@ -280,16 +280,16 @@ func (c *Client) Stream(ctx context.Context, stream string, opts StreamingOption
 					}
 				}
 
-				ev := StreamEvent{
+				ev := StreamMessage{
 					Event: event,
-					Err:   nil,
+					Error: nil,
 				}
 
 				select {
 				case s <- ev:
 				case <-ctx.Done():
-					s <- StreamEvent{
-						Err: errors.Wrap(ctx.Err(), "context stoped"),
+					s <- StreamMessage{
+						Error: errors.Wrap(ctx.Err(), "context stoped"),
 					}
 					return
 				}

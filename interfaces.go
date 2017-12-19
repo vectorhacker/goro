@@ -47,3 +47,13 @@ type EventReadWriteStreamer interface {
 	EventReadWriter
 	EventStreamer
 }
+
+// Acknowledger notifies the server of successful or failed consumption of
+// messages.
+// Applications can provide mock implementations in tests of Delivery handlers.
+// borrowed from: https://github.com/streadway/amqp/blob/master/delivery.go#L19
+type Acknowledger interface {
+	Ack() error
+	Nack(requeue bool) error
+	Reject(requeue bool) error
+}

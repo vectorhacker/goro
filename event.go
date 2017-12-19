@@ -3,7 +3,12 @@ package goro
 import (
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
+)
+
+var (
+	errNoAcknowledger = errors.New("")
 )
 
 // RawData implements the TextMarshaler and TextUnmarshaler interfaces
@@ -56,11 +61,63 @@ func (e Events) Swap(i, j int) {
 }
 
 // Stream represents a stream of events. This is used when streaming events from the Event Store
-type Stream chan StreamEvent
+type Stream chan StreamMessage
 
-// StreamEvent represents an event as part of a stream. It contains the Event
+// StreamMessage represents an event as part of a stream. It contains the Event
 // or an error if parsing an event failed
-type StreamEvent struct {
-	Event *Event
-	Err   error
+type StreamMessage struct {
+	Acknowledger Acknowledger // the channel from which this delivery arrived
+	Event        *Event
+	Error        error
+}
+
+/*
+Ack delegates an acknowledgement through the Acknowledger interface that the
+client or server has finished work on a delivery.
+An error will indicate that the acknowledge could not be delivered to the
+channel it was sent from.
+Either Delivery.Ack, Delivery.Reject or Delivery.Nack must be called for every
+delivery that is not automatically acknowledged.
+*/
+func (s StreamMessage) Ack() error {
+	if s.Acknowledger == nil {
+		return errNoAcknowledger
+	}
+	return s.Acknowledger.Ack()
+}
+
+/*
+Reject delegates a negatively acknowledgement through the Acknowledger interface.
+When requeue is true, queue this message to be delivered to a consumer on a
+different channel.  When requeue is false or the server is unable to queue this
+message, it will be dropped.
+If you are batch processing deliveries, and your server supports it, prefer
+Delivery.Nack.
+Either Delivery.Ack, Delivery.Reject or Delivery.Nack must be called for every
+delivery that is not automatically acknowledged.
+*/
+func (s StreamMessage) Reject(requeue bool) error {
+	if s.Acknowledger == nil {
+		return errNoAcknowledger
+	}
+	return s.Acknowledger.Reject(requeue)
+}
+
+/*
+Nack negatively acknowledge the delivery of message(s) identified by the
+delivery tag from either the client or server.
+When requeue is true, request the server to deliver this message to a different
+consumer.  If it is not possible or requeue is false, the message will be
+dropped or delivered to a server configured dead-letter queue.
+This method must not be used to select or requeue messages the client wishes
+not to handle, rather it is to inform the server that the client is incapable
+of handling this message at this time.
+Either Delivery.Ack, Delivery.Reject or Delivery.Nack must be called for every
+delivery that is not automatically acknowledged.
+*/
+func (s StreamMessage) Nack(requeue bool) error {
+	if s.Acknowledger == nil {
+		return errNoAcknowledger
+	}
+	return s.Acknowledger.Nack(requeue)
 }

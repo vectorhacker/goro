@@ -242,10 +242,10 @@ func TestStream(t *testing.T) {
 	expectedSum := 1225
 	sum := 0
 
-	for stremEvent := range stream {
-		assert.Nil(stremEvent.Err)
-		t.Log(stremEvent.Event.ID, stremEvent.Event.Version)
-		sum += int(stremEvent.Event.Version)
+	for e := range stream {
+		assert.Nil(e.Error)
+		t.Log(e.Event.ID, e.Event.Version)
+		sum += int(e.Event.Version)
 	}
 
 	assert.Equal(expectedSum, sum)
