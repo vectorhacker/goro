@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	errNoAcknowledger = errors.New("")
+	errNoAcknowledger = errors.New("no acknowleger has been set")
 )
 
 // RawData implements the TextMarshaler and TextUnmarshaler interfaces
@@ -28,6 +28,11 @@ func (r *RawData) UnmarshalText(text []byte) error {
 	return nil
 }
 
+type Link struct {
+	URI      string `json:"uri"`
+	Relation string `json:"relation"`
+}
+
 // Event represent an event to be stored or retrieved. It stores Data and Metadata as byte arrays.
 // It is up to the client to unmarshal the Data ane Metadata of the the event.
 type Event struct {
@@ -39,6 +44,7 @@ type Event struct {
 	Type      string    `json:"eventType"`
 	Version   int64     `json:"eventNumber"`
 	Timestamp time.Time `json:"updated"`
+	Links     []Link    `json:"links"`
 }
 
 // Events is an array of events. It impelements the sort.Interface interface
@@ -66,7 +72,7 @@ type Stream chan StreamMessage
 // StreamMessage represents an event as part of a stream. It contains the Event
 // or an error if parsing an event failed
 type StreamMessage struct {
-	Acknowledger Acknowledger // the channel from which this delivery arrived
+	Acknowledger Acknowledger
 	Event        *Event
 	Error        error
 }
@@ -84,23 +90,6 @@ func (s StreamMessage) Ack() error {
 		return errNoAcknowledger
 	}
 	return s.Acknowledger.Ack()
-}
-
-/*
-Reject delegates a negatively acknowledgement through the Acknowledger interface.
-When requeue is true, queue this message to be delivered to a consumer on a
-different channel.  When requeue is false or the server is unable to queue this
-message, it will be dropped.
-If you are batch processing deliveries, and your server supports it, prefer
-Delivery.Nack.
-Either Delivery.Ack, Delivery.Reject or Delivery.Nack must be called for every
-delivery that is not automatically acknowledged.
-*/
-func (s StreamMessage) Reject(requeue bool) error {
-	if s.Acknowledger == nil {
-		return errNoAcknowledger
-	}
-	return s.Acknowledger.Reject(requeue)
 }
 
 /*

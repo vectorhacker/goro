@@ -2,36 +2,23 @@ package goro
 
 import "context"
 
-// Direction specifies the direction to point a stream at
-type Direction string
-
-// Direction enum
-const (
-	DirectionForward  Direction = "forward"
-	DirectionBackward           = "backward"
-)
-
-// EventReader reads a single event from a stream
+// EventReader reads a multiple event from a stream. If the count is -1, it will try to read all events starting
+// from the version given. Practically, the count is limited to math.MaxInt32 or math.MaxInt64 depending on the
+// system, if needed a long poll of 10 seconds will be used to read event up to the count, if using count -1 no long
+// poll will be used
 type EventReader interface {
-	Read(ctx context.Context, stream string, version int64) (*Event, error)
+	ReadForwards(ctx context.Context, version int64, count int) (Events, error)
+	ReadBackwards(ctx context.Context, version int64, count int) (Events, error)
 }
 
-// StreamingOptions sets the options for creating a stream of
-// events from an Event Store stream
-type StreamingOptions struct {
-	Start int64
-	Max   int
-	Poll  bool // Specifies if long polling should be used
-}
-
-// EventStreamer reads many events into a stream
+// EventStreamer reads many events into a stream.
 type EventStreamer interface {
-	Stream(ctx context.Context, stream string, opts StreamingOptions) Stream
+	Stream(ctx context.Context) Stream
 }
 
 // EventWriter writes many events to a stream.
 type EventWriter interface {
-	Write(ctx context.Context, stream string, events ...*Event) error
+	Write(ctx context.Context, events ...*Event) error
 }
 
 // EventReadWriter is a composite interface of EventReader
@@ -55,5 +42,4 @@ type EventReadWriteStreamer interface {
 type Acknowledger interface {
 	Ack() error
 	Nack(requeue bool) error
-	Reject(requeue bool) error
 }
