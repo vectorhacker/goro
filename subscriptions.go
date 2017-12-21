@@ -116,31 +116,13 @@ func (s *PersistentSubscription) Stream(ctx context.Context) Stream {
 		defer close(stream)
 
 		for {
-			req, err := http.NewRequest(http.MethodGet, uri, nil)
+			result, err := retreiveEvents(ctx, uri, s.Credentials, s.HTTPClient)
 			if err != nil {
 				stream <- StreamMessage{
-					Error: errors.Wrap(err, "unable to read stream"),
+					Error: err,
 				}
 				return
-			}
-			s.Credentials.Apply(req)
 
-			res, err := s.HTTPClient.Do(req)
-			if err != nil {
-				stream <- StreamMessage{
-					Error: errors.Wrap(err, "unable to read stream"),
-				}
-				return
-			}
-
-			result := StreamResult{}
-
-			err = json.NewDecoder(res.Body).Decode(&result)
-			if err != nil {
-				stream <- StreamMessage{
-					Error: errors.Wrap(err, "unable to read stream"),
-				}
-				return
 			}
 
 			for _, event := range result.Events {
@@ -159,6 +141,7 @@ func (s *PersistentSubscription) Stream(ctx context.Context) Stream {
 	return stream
 }
 
+// CatchupSubscription starts at a suggested point continues up to the head of the stream
 type CatchupSubscription struct {
 	StreamName  string
 	HTTPClient  *http.Client
@@ -170,10 +153,70 @@ type CatchupSubscription struct {
 // Stream implements the EventStreamer interface
 func (s *CatchupSubscription) Stream(ctx context.Context) Stream {
 	stream := make(Stream)
+	next := s.Start
 
 	go func() {
+		for {
+			uri := fmt.Sprintf("%s/streams/%s/%d/forward/10", s.Host, s.StreamName, next)
 
+			result, err := retreiveEvents(ctx, uri, s.Credentials, s.HTTPClient)
+			if err != nil {
+				stream <- StreamMessage{
+					Error: err,
+				}
+				return
+
+			}
+
+			for _, event := range result.Events {
+				select {
+				case stream <- StreamMessage{
+					Event:        event,
+					Acknowledger: nil, // TODO: implements Acknowledger
+				}:
+
+				case <-ctx.Done():
+					return
+				}
+			}
+
+			if len(result.Events) == 0 {
+				<-time.After(10 * time.Second)
+				continue
+			}
+
+			next += int64(len(result.Events))
+		}
 	}()
 
 	return stream
+}
+
+func retreiveEvents(ctx context.Context, uri string, credentials Credentials, client *http.Client) (*StreamResult, error) {
+	req, err := http.NewRequest(http.MethodGet, uri, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to read stream")
+	}
+	credentials.Apply(req)
+	req.Header.Add("Accept", "application/vnd.eventstore.atom+json")
+
+	q := req.URL.Query()
+	q.Add("embed", "body")
+	req.URL.RawQuery = q.Encode()
+
+	req = req.WithContext(ctx)
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to read stream")
+	}
+
+	result := StreamResult{}
+
+	err = json.NewDecoder(res.Body).Decode(&result)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to read stream")
+	}
+
+	return &result, nil
 }

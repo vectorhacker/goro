@@ -5,7 +5,7 @@ import "context"
 // EventReader reads a multiple event from a stream. If the count is -1, it will try to read all events starting
 // from the version given. Practically, the count is limited to math.MaxInt32 or math.MaxInt64 depending on the
 // system, if needed a long poll of 10 seconds will be used to read event up to the count, if using count -1 no long
-// poll will be used
+// poll will be used. For reading backwards, -1 means it will read until it gets to the first event
 type EventReader interface {
 	ReadForwards(ctx context.Context, version int64, count int) (Events, error)
 	ReadBackwards(ctx context.Context, version int64, count int) (Events, error)
