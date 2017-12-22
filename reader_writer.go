@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Reader implements the EventReader interface
 type Reader struct {
 	Stream      string
 	Credentials Credentials
@@ -18,6 +19,7 @@ type Reader struct {
 	Host        string
 }
 
+// ReadForwards implements the EventReader interface
 func (r *Reader) ReadForwards(ctx context.Context, version int64, count int) (Events, error) {
 	events := Events{}
 
@@ -41,13 +43,14 @@ func (r *Reader) ReadForwards(ctx context.Context, version int64, count int) (Ev
 	return events, nil
 }
 
+// ReadBackwards implements the EventReader interface
 func (r *Reader) ReadBackwards(ctx context.Context, version int64, count int) (Events, error) {
 	events := Events{}
 
 	next := version
 
 	for len(events) != count || (count == -1 && next > 0) {
-		uri := fmt.Sprintf("%s/streams/%d/forward/20", r.Host, r.Stream, next)
+		uri := fmt.Sprintf("%s/streams/%s/%d/forward/20", r.Host, r.Stream, next)
 		result, err := retreiveEvents(ctx, uri, r.Credentials, r.HTTPClient)
 		if err != nil {
 			return nil, errors.Wrap(err, "")
