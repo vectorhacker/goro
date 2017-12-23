@@ -27,7 +27,7 @@ func (r *Reader) ReadForwards(ctx context.Context, version int64, count int) (Ev
 	next := version
 
 	for len(events) != count || (count == -1 && !headOfStream) {
-		uri := fmt.Sprintf("%s/streams/%d/forward/20", r.Host, r.Stream, next)
+		uri := fmt.Sprintf("%s/streams/%s/%d/forward/20", r.Host, r.Stream, next)
 		result, err := retreiveEvents(ctx, uri, r.Credentials, r.HTTPClient)
 		if err != nil {
 			return nil, errors.Wrap(err, "")
