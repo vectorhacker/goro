@@ -1,222 +1,77 @@
 package goro
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"time"
-
-	"github.com/pkg/errors"
+	"errors"
 )
 
-// Author is the author of an event or stream
-type Author struct {
-	Name string `json:"name"`
+type catchupSubscription struct {
+	stream string
+	start  int64
+	client Client
 }
 
-// StreamResult represents a stream response
-type StreamResult struct {
-	Events       Events    `json:"entries"`
-	HeadOfStream bool      `json:"headOfStream"`
-	Title        string    `json:"title"`
-	Timestamp    time.Time `json:"updated"`
-	Author       Author    `json:"author"`
-}
-
-// PersistentSubscriptionParameters parameters for creating or updating a PersistentSubscription
-type PersistentSubscriptionParameters struct {
-	ResolveToLinks              bool  `json:"resolveLinktos,omitempty"`
-	Start                       int64 `json:"startFrom,omitempty"`
-	ExtraStatistics             bool  `json:"extraStatistics,omitempty"`
-	CheckPointAfterMilliseconds int   `json:"checkPointAfterMilliseconds,omitempty"`
-	LiveBufferSize              int   `json:"liveBufferSize,omitempty"`
-	ReadBatchSize               int   `json:"readBatchSize,omitempty"`
-	BufferSize                  int   `json:"bufferSize,omitempty"`
-	MaxCheckPointCount          int   `json:"maxCheckPointCount,omitempty"`
-	MaxRetryCount               int   `json:"maxRetryCount,omitempty"`
-	MaxSubscriberCount          int   `json:"maxSubscriberCount,omitempty"`
-	MessageTimeoutMilliseconds  int   `json:"messageTimeoutMilliseconds,omitempty"`
-	MinCheckPointCount          int   `json:"minCheckPointCount,omitempty"`
-	NamedConsumerStrategy       int   `json:"namedConsumerStrategy,omitempty"`
-}
-
-// PersistentSubscriptionOption changes the options in a PersistentSubscription
-type PersistentSubscriptionOption func(*PersistentSubscription)
-
-// PersistentSubscriptionWithHost sets the host for the PersistentSubscription
-func PersistentSubscriptionWithHost(host string) PersistentSubscriptionOption {
-	return func(c *PersistentSubscription) {
-		c.Host = host
+// NewCatchupSubscription creates a Subscriber that starts reading a stream from a specific event and then
+// catches up to the head of the stream.
+func NewCatchupSubscription(client Client, stream string, startFrom int64) Subscriber {
+	return &catchupSubscription{
+		stream: stream,
+		start:  startFrom,
+		client: client,
 	}
 }
 
-// PersistentSubscription represents a consuming competing consumer subscription group.
-type PersistentSubscription struct {
-	HTTPClient       *http.Client
-	Host             string
-	Credentials      Credentials
-	StreamName       string
-	SubscriptionName string
-}
-
-// CreatePersistentSubscription creates a subscription group
-func CreatePersistentSubscription(stream, name string, parameters PersistentSubscriptionParameters, options ...PersistentSubscriptionOption) (*PersistentSubscription, error) {
-	s := &PersistentSubscription{
-		HTTPClient:       http.DefaultClient,
-		Host:             DefaultHost,
-		Credentials:      DefaultCredentials,
-		SubscriptionName: name,
-		StreamName:       stream,
-	}
-
-	for _, option := range options {
-		option(s)
-	}
-
-	b := new(bytes.Buffer)
-	err := json.NewEncoder(b).Encode(parameters)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create subsciption due to bad parameters")
-	}
-
-	uri := fmt.Sprintf("%s/subscriptions/%s/%s", s.Host, stream, name)
-
-	req, err := http.NewRequest(http.MethodPut, uri, b)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create subsciption")
-	}
-	req.Header.Add("Content-Type", "application/json")
-	s.Credentials.Apply(req)
-
-	res, err := s.HTTPClient.Do(req)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create subsciption")
-	}
-
-	if res.StatusCode != http.StatusCreated {
-		return nil, errors.Errorf("unable to create subsciption due to status %d %s", res.StatusCode, res.Status)
-	}
-
-	return s, nil
-}
-
-// Update updates the subscription
-func (s *PersistentSubscription) Update(parameter PersistentSubscriptionParameters) error {
-	return nil
-}
-
-// Stream implemetns the EventStreamer interface
-func (s *PersistentSubscription) Stream(ctx context.Context) Stream {
-	stream := make(Stream)
-	uri := fmt.Sprintf("%s/subscriptions/%s/%s/10", s.Host, s.StreamName, s.SubscriptionName)
-
-	go func() {
-		defer close(stream)
-
-		for {
-			result, err := retreiveEvents(ctx, uri, s.Credentials, s.HTTPClient)
-			if err != nil {
-				stream <- StreamMessage{
-					Error: err,
-				}
-				return
-
-			}
-
-			for _, event := range result.Events {
-				select {
-				case stream <- StreamMessage{
-					Event:        event,
-					Acknowledger: nil, // TODO: implements Acknowledger
-				}:
-				case <-ctx.Done():
-					return
-				}
-			}
-		}
-	}()
-
+// Subscribe implements the Subscriber interface
+func (s *catchupSubscription) Subscribe(ctx context.Context) <-chan StreamMessage {
+	stream := make(chan StreamMessage)
 	return stream
 }
 
-// CatchupSubscription starts at a suggested point continues up to the head of the stream
-type CatchupSubscription struct {
-	StreamName  string
-	HTTPClient  *http.Client
-	Host        string
-	Credentials Credentials
-	Start       int64
+type persistentSubscription struct {
+	stream string
+	group  string
+	client Client
 }
 
-// Stream implements the EventStreamer interface
-func (s *CatchupSubscription) Stream(ctx context.Context) Stream {
-	stream := make(Stream)
-	next := s.Start
+// PersistentSubscriptionSettings represents the settings for creating and updating a persistant subscripton.
+// You can read more about those settings in the Event Store documentation [here](https://eventstore.org/docs/http-api/4.0.2/competing-consumers/#creating-a-persistent-subscription).
+type PersistentSubscriptionSettings struct {
+	ResolveLinkTos              bool   `json:"resolveLinktos,omitempty"`
+	StartFrom                   int64  `json:"startFrom,omitempty"`
+	ExtraStatistics             bool   `json:"extraStatistics,omitempty"`
+	CheckPointAfterMilliseconds int64  `json:"checkPointAfterMilliseconds,omitempty"`
+	LiveBufferSize              int    `json:"liveBufferSize,omitempty"`
+	ReadBatchSize               int    `json:"readBatchSize,omitempty"`
+	BufferSize                  int    `json:"bufferSize,omitempty"`
+	MaxCheckPointCount          int    `json:"maxCheckPointCount,omitempty"`
+	MaxRetryCount               int    `json:"maxRetryCount,omitempty"`
+	MaxSubscriberCount          int    `json:"maxSubscriberCount,omitempty"`
+	MessageTimeoutMilliseconds  int64  `json:"messageTimeoutMilliseconds,omitempty"`
+	MinCheckPointCount          int    `json:"minCheckPointCount,omitempty"`
+	NamedConsumerStrategy       string `json:"namedConsumerStrategy,omitempty"`
+}
 
-	go func() {
-		for {
-			uri := fmt.Sprintf("%s/streams/%s/%d/forward/10", s.Host, s.StreamName, next)
+// NewPersistentSubscription creates a new subscription that implements the competing consumers pattern
+func NewPersistentSubscription(client Client, stream, group string, settings *PersistentSubscriptionSettings) (Subscriber, error) {
+	return &persistentSubscription{
+		client: client,
+		group:  group,
+		stream: stream,
+	}, nil
+}
 
-			result, err := retreiveEvents(ctx, uri, s.Credentials, s.HTTPClient)
-			if err != nil {
-				stream <- StreamMessage{
-					Error: err,
-				}
-				return
+// UpdatePersistentSubscription updates an existing subscription if it's persistant
+func UpdatePersistentSubscription(subscription Subscriber, newSettings *PersistentSubscriptionSettings) (Subscriber, error) {
+	_, ok := subscription.(*persistentSubscription)
+	if !ok {
+		return nil, errors.New("not a Persistant Subscription")
+	}
 
-			}
+	return subscription, nil
+}
 
-			for _, event := range result.Events {
-				select {
-				case stream <- StreamMessage{
-					Event:        event,
-					Acknowledger: nil, // TODO: implements Acknowledger
-				}:
-
-				case <-ctx.Done():
-					return
-				}
-			}
-
-			if len(result.Events) == 0 {
-				<-time.After(10 * time.Second)
-				continue
-			}
-
-			next += int64(len(result.Events))
-		}
-	}()
-
+// Subscribe implements the Subscriber interface
+func (s *persistentSubscription) Subscribe(ctx context.Context) <-chan StreamMessage {
+	stream := make(chan StreamMessage)
 	return stream
-}
-
-func retreiveEvents(ctx context.Context, uri string, credentials Credentials, client *http.Client) (*StreamResult, error) {
-	req, err := http.NewRequest(http.MethodGet, uri, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to read stream")
-	}
-	credentials.Apply(req)
-	req.Header.Add("Accept", "application/vnd.eventstore.atom+json")
-
-	q := req.URL.Query()
-	q.Add("embed", "body")
-	req.URL.RawQuery = q.Encode()
-
-	req = req.WithContext(ctx)
-
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to read stream")
-	}
-
-	result := StreamResult{}
-
-	err = json.NewDecoder(res.Body).Decode(&result)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to read stream")
-	}
-
-	return &result, nil
 }
