@@ -5,27 +5,11 @@ package goro
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/satori/go.uuid"
 )
-
-// RawBytes represents a byte array that can be turned into text and back again
-// This is only to prevent the json decoder and econder from trying to parse them
-// into base64 byte arrays
-type RawBytes []byte
-
-// MarshalText implements the TextMarshaler interface
-func (r RawBytes) MarshalText() (text []byte, err error) {
-	text = r[:]
-	return
-}
-
-// UnmarshalText implements the TextUnamarshaler interface
-func (r *RawBytes) UnmarshalText(text []byte) error {
-	*r = text[:]
-	return nil
-}
 
 // Author represents the Author of an Event
 type Author struct {
@@ -33,20 +17,32 @@ type Author struct {
 }
 
 // Event represents an Event in Event Store
+// the data and Metadata must be json encoded
 type Event struct {
-	ID             uuid.UUID `json:"eventID"`
-	Type           string    `json:"eventType"`
-	Version        int64     `json:"eventNumber"`
-	Data           RawBytes  `json:"data,omitempty"`
-	Stream         string    `json:"streamId"`
-	IsJSON         bool      `json:"isJson"`
-	Metadata       RawBytes  `json:"metadata,omitempty"`
-	Position       int64     `json:"positionEventNumber,omitempty"`
-	PositionStream string    `json:"positionStreamId,omitempty"`
-	Title          string    `json:"title,omitempty"`
-	At             time.Time `json:"updated,omitempty"`
-	Author         Author    `json:"author,omitempty"`
-	Summary        string    `json:"summary,omitempty"`
+	ID             uuid.UUID       `json:"eventID"`
+	Type           string          `json:"eventType"`
+	Version        int64           `json:"eventNumber"`
+	Data           json.RawMessage `json:"data,omitempty"`
+	Stream         string          `json:"streamId"`
+	Metadata       json.RawMessage `json:"metadata,omitempty"`
+	Position       int64           `json:"positionEventNumber,omitempty"`
+	PositionStream string          `json:"positionStreamId,omitempty"`
+	At             time.Time       `json:"updated,omitempty"`
+	Author         Author          `json:"author,omitempty"`
+}
+
+type Events []*Event
+
+func (e Events) Len() int {
+	return len(e)
+}
+
+func (e Events) Swap(a, b int) {
+	e[b], e[a] = e[a], e[b]
+}
+
+func (e Events) Less(a, b int) bool {
+	return e[a].Version < e[b].Version
 }
 
 // StreamMessage contains an Event or an error
