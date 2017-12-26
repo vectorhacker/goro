@@ -1,0 +1,74 @@
+// Package goro is pure Go client library for dealing with Event Store (versions 3.2.0 and later).
+// It includes a high-level API for reading and writing events. Usage examples for the high-level
+// APIs are provided inline with their full documentation.
+package goro
+
+import (
+	"context"
+	"encoding/json"
+	"time"
+
+	"github.com/satori/go.uuid"
+)
+
+// Author represents the Author of an Event
+type Author struct {
+	Name string `json:"name"`
+}
+
+// Event represents an Event in Event Store
+// the data and Metadata must be json encoded
+type Event struct {
+	ID             uuid.UUID       `json:"eventID"`
+	Type           string          `json:"eventType"`
+	Version        int64           `json:"eventNumber"`
+	Data           json.RawMessage `json:"data,omitempty"`
+	Stream         string          `json:"streamId"`
+	Metadata       json.RawMessage `json:"metadata,omitempty"`
+	Position       int64           `json:"positionEventNumber,omitempty"`
+	PositionStream string          `json:"positionStreamId,omitempty"`
+	At             time.Time       `json:"updated,omitempty"`
+	Author         Author          `json:"author,omitempty"`
+}
+
+type Events []*Event
+
+func (e Events) Len() int {
+	return len(e)
+}
+
+func (e Events) Swap(a, b int) {
+	e[b], e[a] = e[a], e[b]
+}
+
+func (e Events) Less(a, b int) bool {
+	return e[a].Version < e[b].Version
+}
+
+// StreamMessage contains an Event or an error
+type StreamMessage struct {
+	Event *Event
+	Error error
+}
+
+// ExpectedVersions
+const (
+	ExpectedVersionAny   int64 = -2
+	ExpectedVersionNone  int64 = -1
+	ExpectedVersionEmpty int64 = 0
+)
+
+// Subscriber streams events
+type Subscriber interface {
+	Subscribe(ctx context.Context) <-chan StreamMessage
+}
+
+// Writer writes events to a stream
+type Writer interface {
+	Write(ctx context.Context, expectedVersion int64, events ...*Event) error
+}
+
+// Reader reads a couple of Events from a stream
+type Reader interface {
+	Read(ctx context.Context, start int64, count int) ([]*Event, error)
+}
