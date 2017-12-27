@@ -4,15 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"sort"
-)
-
-// Errors
-var (
-	ErrStreamNotFound = errors.New("the stream was not found")
-	ErrUnauthorized   = errors.New("no access")
-	ErrInternalError  = errors.New("internall error has occured")
 )
 
 type embedParams struct {
@@ -49,14 +41,14 @@ func (s *catchupSubscription) Subscribe(ctx context.Context) <-chan StreamMessag
 
 		for {
 			path := fmt.Sprintf("/streams/%s/%d/forwards/%d", s.stream, next, count)
-			res, err := s.slinger.
+			req, err := s.slinger.
 				Sling().
 				Get(path).
 				Set("ES-LongPoll", "10").
 				QueryStruct(&embedParams{
 					Embed: "body",
 				}).
-				ReceiveSuccess(&response)
+				Request()
 			if err != nil {
 				stream <- StreamMessage{
 					Error: err,
@@ -64,20 +56,18 @@ func (s *catchupSubscription) Subscribe(ctx context.Context) <-chan StreamMessag
 				return
 			}
 
-			switch res.StatusCode {
-			case http.StatusNotFound:
+			res, err := s.slinger.Sling().Do(req, &response, nil)
+			if err != nil {
 				stream <- StreamMessage{
-					Error: ErrStreamNotFound,
+					Error: err,
 				}
 				return
-			case http.StatusUnauthorized:
+			}
+
+			err = RelevantError(res.StatusCode)
+			if err != nil {
 				stream <- StreamMessage{
-					Error: ErrUnauthorized,
-				}
-				return
-			case http.StatusInternalServerError:
-				stream <- StreamMessage{
-					Error: ErrInternalError,
+					Error: err,
 				}
 				return
 			}
@@ -127,21 +117,41 @@ type PersistentSubscriptionSettings struct {
 
 // NewPersistentSubscription creates a new subscription that implements the competing consumers pattern
 func NewPersistentSubscription(slinger Slinger, stream, group string, settings *PersistentSubscriptionSettings) (Subscriber, error) {
-	return &persistentSubscription{
+	s := &persistentSubscription{
 		slinger: slinger,
 		group:   group,
 		stream:  stream,
-	}, nil
+	}
+
+	res, err := s.slinger.
+		Sling().
+		Post(fmt.Sprintf("/subscriptions/%s/%s", stream, group)).
+		BodyJSON(settings).
+		ReceiveSuccess(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return s, RelevantError(res.StatusCode)
 }
 
 // UpdatePersistentSubscription updates an existing subscription if it's persistant
 func UpdatePersistentSubscription(subscription Subscriber, newSettings *PersistentSubscriptionSettings) (Subscriber, error) {
-	_, ok := subscription.(*persistentSubscription)
+	s, ok := subscription.(*persistentSubscription)
 	if !ok {
 		return nil, errors.New("not a Persistant Subscription")
 	}
 
-	return subscription, nil
+	res, err := s.slinger.
+		Sling().
+		Post(fmt.Sprintf("/subscriptions/%s/%s", s.stream, s.group)).
+		BodyJSON(newSettings).
+		ReceiveSuccess(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return subscription, RelevantError(res.StatusCode)
 }
 
 // Subscribe implements the Subscriber interface

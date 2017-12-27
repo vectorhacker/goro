@@ -49,7 +49,7 @@ func (r streamReader) Read(ctx context.Context, start int64, count int) ([]*Even
 
 	for len(events) != count {
 		path := fmt.Sprintf("/streams/%s/%d/%s/10", r.stream, next, r.direction)
-		res, err := r.slinger.Sling().Get(path).Set("Accept", "application/json").ReceiveSuccess(&response)
+		_, err := r.slinger.Sling().Get(path).Set("Accept", "application/json").ReceiveSuccess(&response)
 		if err != nil {
 			// TODO: enrich error
 			return nil, err

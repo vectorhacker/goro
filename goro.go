@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/dghubble/sling"
@@ -122,4 +123,19 @@ type SlingerFunc func() *sling.Sling
 // Sling implements the Slinger interface
 func (f SlingerFunc) Sling() *sling.Sling {
 	return f()
+}
+
+func RelevantError(statusCode int) error {
+	switch statusCode {
+	case http.StatusNotFound:
+		return ErrStreamNotFound
+	case http.StatusUnauthorized:
+		return ErrUnauthorized
+	case http.StatusInternalServerError:
+		return ErrInternalError
+	case http.StatusBadRequest:
+		return ErrInvalidContentType
+	default:
+		return nil
+	}
 }
