@@ -62,7 +62,7 @@ func (m StreamMessage) Ack() error {
 	return errors.New("no Acknowledger set")
 }
 
-// Nack rejects an Event or fails
+// Nack rejects`` an Event or fails
 func (m StreamMessage) Nack(action Action) error {
 	if m.Acknowledger != nil {
 		return m.Acknowledger.Nack(action)
