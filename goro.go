@@ -9,6 +9,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/dghubble/sling"
 	"github.com/satori/go.uuid"
 )
 
@@ -108,4 +109,17 @@ type Writer interface {
 // Reader reads a couple of Events from a stream
 type Reader interface {
 	Read(ctx context.Context, start int64, count int) ([]*Event, error)
+}
+
+// Slinger is something that can return a sling object
+type Slinger interface {
+	Sling() *sling.Sling
+}
+
+// SlingerFunc is something that can return a sling object
+type SlingerFunc func() *sling.Sling
+
+// Sling implements the Slinger interface
+func (f SlingerFunc) Sling() *sling.Sling {
+	return f()
 }

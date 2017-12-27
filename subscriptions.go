@@ -2,7 +2,6 @@ package goro
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,19 +15,23 @@ var (
 	ErrInternalError  = errors.New("internall error has occured")
 )
 
+type embedParams struct {
+	Embed string `url:"embed,omitempty"`
+}
+
 type catchupSubscription struct {
-	stream string
-	start  int64
-	client Client
+	stream  string
+	start   int64
+	slinger Slinger
 }
 
 // NewCatchupSubscription creates a Subscriber that starts reading a stream from a specific event and then
 // catches up to the head of the stream.
-func NewCatchupSubscription(client Client, stream string, startFrom int64) Subscriber {
+func NewCatchupSubscription(slinger Slinger, stream string, startFrom int64) Subscriber {
 	return &catchupSubscription{
-		stream: stream,
-		start:  startFrom,
-		client: client,
+		stream:  stream,
+		start:   startFrom,
+		slinger: slinger,
 	}
 }
 
@@ -45,17 +48,15 @@ func (s *catchupSubscription) Subscribe(ctx context.Context) <-chan StreamMessag
 		count := 20
 
 		for {
-			path := fmt.Sprintf("/streams/%s/%d/forwards/%d?embed=body", s.stream, next, count)
-			req, err := s.client.Request(ctx, http.MethodGet, path, nil)
-			if err != nil {
-				stream <- StreamMessage{
-					Error: err,
-				}
-				return
-			}
-			req.Header.Add("ES-LongPoll", "10") // poll for 10 seconds if no events
-
-			res, err := s.client.HTTPClient().Do(req)
+			path := fmt.Sprintf("/streams/%s/%d/forwards/%d", s.stream, next, count)
+			res, err := s.slinger.
+				Sling().
+				Get(path).
+				Set("ES-LongPoll", "10").
+				QueryStruct(&embedParams{
+					Embed: "body",
+				}).
+				ReceiveSuccess(&response)
 			if err != nil {
 				stream <- StreamMessage{
 					Error: err,
@@ -81,14 +82,6 @@ func (s *catchupSubscription) Subscribe(ctx context.Context) <-chan StreamMessag
 				return
 			}
 
-			err = json.NewDecoder(res.Body).Decode(&response)
-			if err != nil {
-				stream <- StreamMessage{
-					Error: err,
-				}
-				return
-			}
-
 			sort.Sort(response.Events)
 			for _, event := range response.Events {
 				select {
@@ -109,9 +102,9 @@ func (s *catchupSubscription) Subscribe(ctx context.Context) <-chan StreamMessag
 }
 
 type persistentSubscription struct {
-	stream string
-	group  string
-	client Client
+	stream  string
+	group   string
+	slinger Slinger
 }
 
 // PersistentSubscriptionSettings represents the settings for creating and updating a persistant subscripton.
@@ -133,11 +126,11 @@ type PersistentSubscriptionSettings struct {
 }
 
 // NewPersistentSubscription creates a new subscription that implements the competing consumers pattern
-func NewPersistentSubscription(client Client, stream, group string, settings *PersistentSubscriptionSettings) (Subscriber, error) {
+func NewPersistentSubscription(slinger Slinger, stream, group string, settings *PersistentSubscriptionSettings) (Subscriber, error) {
 	return &persistentSubscription{
-		client: client,
-		group:  group,
-		stream: stream,
+		slinger: slinger,
+		group:   group,
+		stream:  stream,
 	}, nil
 }
 
