@@ -1,79 +1,61 @@
 package goro
 
 import (
-	"context"
-	"fmt"
-	"io"
 	"net/http"
+
+	"github.com/dghubble/sling"
 )
 
-// requestApplier applies some option to an http.Request
-type requestApplier func(*http.Request)
-
 // Client is a connection to an event store
-type Client interface {
-	Request(ctx context.Context, method, path string, body io.Reader) (*http.Request, error)
-	HTTPClient() *http.Client
-}
-
-type client struct {
-	host       string
-	httpClient *http.Client
-	appliers   []requestApplier
+type Client struct {
+	sling *sling.Sling
 }
 
 // ClientOption applies options to a client
-type ClientOption func(*client)
+type ClientOption func(*Client)
 
 // WithBasicAuth adds basic authentication to the Event Store
 func WithBasicAuth(username, password string) ClientOption {
-	return func(c *client) {
-		c.appliers = append(c.appliers, func(r *http.Request) {
-			r.SetBasicAuth(username, password)
-		})
+	return func(c *Client) {
+		c.sling.SetBasicAuth(username, password)
 	}
 }
 
 // WithHTTPClient sets the http.Client for the Client
 func WithHTTPClient(httpClient *http.Client) ClientOption {
-	return func(c *client) {
-		c.httpClient = httpClient
+	return func(c *Client) {
+		c.sling.Client(httpClient)
 	}
 }
 
 // Connect creates a new client
-func Connect(host string, options ...ClientOption) Client {
-	c := &client{
-		host:       host,
-		httpClient: http.DefaultClient,
+func Connect(host string, options ...ClientOption) *Client {
+	c := &Client{
+		sling: sling.New().Base(host),
 	}
 	for _, opt := range options {
 		opt(c)
 	}
+
 	return c
 }
 
-// Request implements the Client interface
-func (c client) Request(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
-	if path[0] == '/' {
-		path = path[1:]
-	}
-	uri := fmt.Sprintf("%s/%s", c.host, path)
-	req, err := http.NewRequest(method, uri, body)
-	if err != nil {
-		return nil, err
-	}
-
-	req = req.WithContext(ctx)
-
-	for _, a := range c.appliers {
-		a(req)
-	}
-
-	return req, nil
+// Sling creates a new Sling object
+func (c Client) Sling() *sling.Sling {
+	return c.sling.New()
 }
 
-// HTTPClient implements the Client interface
-func (c client) HTTPClient() *http.Client {
-	return c.httpClient
+// Writer creates a new Writer for a stream
+func (c Client) Writer(stream string) Writer {
+	return NewWriter(c, stream)
+}
+
+// BackwardsReader creates a new Reader that reads backwards on a stream
+func (c Client) BackwardsReader(stream string) Reader {
+	return NewBackwardsReader(c, stream)
+}
+
+// FowardsReader creates a new Reader that reads forwards on a stream
+func (c Client) FowardsReader(stream string) Reader {
+	return NewForwardsReader(c, stream)
 }

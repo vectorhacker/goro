@@ -11,8 +11,8 @@ import (
 )
 
 type streamWriter struct {
-	stream string
-	client Client
+	stream  string
+	slinger Slinger
 }
 
 const (
@@ -20,10 +20,10 @@ const (
 )
 
 // NewWriter creates a new Writer for a stream
-func NewWriter(client Client, stream string) Writer {
+func NewWriter(slinger Slinger, stream string) Writer {
 	return &streamWriter{
-		stream: stream,
-		client: client,
+		stream:  stream,
+		slinger: slinger,
 	}
 }
 
@@ -38,17 +38,13 @@ func (w streamWriter) Write(ctx context.Context, expectedVersion int64, events .
 
 	json.NewEncoder(b).Encode(data)
 
-	req, err := w.client.Request(ctx, http.MethodPost, path, b)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/vnd.eventstore.events+json")
-	req.Header.Set("ES-ExpectedVersion", fmt.Sprintf("%d", expectedVersion))
-
-	resp, err := w.client.HTTPClient().Do(req)
-	if err != nil {
-		return err
-	}
+	resp, err := w.slinger.
+		Sling().
+		Post(path).
+		Body(b).
+		Set("Content-Type", "application/vnd.eventstore.events+json").
+		Set("ES-ExpectedVersion", fmt.Sprintf("%d", expectedVersion)).
+		ReceiveSuccess(nil)
 
 	if resp.StatusCode != http.StatusCreated {
 		return errors.New("not created with status" + resp.Status)

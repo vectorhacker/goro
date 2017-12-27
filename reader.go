@@ -2,9 +2,7 @@ package goro
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 )
 
 type direction string
@@ -17,24 +15,24 @@ const (
 type streamReader struct {
 	stream    string
 	direction direction
-	client    Client
+	slinger   Slinger
 }
 
 // NewBackwardsReader creates a Reader that reads events backwards
-func NewBackwardsReader(client Client, stream string) Reader {
+func NewBackwardsReader(slinger Slinger, stream string) Reader {
 	return &streamReader{
 		stream:    stream,
 		direction: directionBackwards,
-		client:    client,
+		slinger:   slinger,
 	}
 }
 
 // NewForwardsReader creates a Reader that reads events forwards
-func NewForwardsReader(client Client, stream string) Reader {
+func NewForwardsReader(slinger Slinger, stream string) Reader {
 	return &streamReader{
 		stream:    stream,
 		direction: directionForwards,
-		client:    client,
+		slinger:   slinger,
 	}
 }
 
@@ -51,20 +49,7 @@ func (r streamReader) Read(ctx context.Context, start int64, count int) ([]*Even
 
 	for len(events) != count {
 		path := fmt.Sprintf("/streams/%s/%d/%s/10", r.stream, next, r.direction)
-		req, err := r.client.Request(ctx, http.MethodGet, path, nil)
-		if err != nil {
-			// TODO: enrich error
-			return nil, err
-		}
-		req.Header.Add("Accept", "application/json")
-
-		res, err := r.client.HTTPClient().Do(req)
-		if err != nil {
-			// TODO: enrich error
-			return nil, err
-		}
-
-		err = json.NewDecoder(res.Body).Decode(&response)
+		res, err := r.slinger.Sling().Get(path).Set("Accept", "application/json").ReceiveSuccess(&response)
 		if err != nil {
 			// TODO: enrich error
 			return nil, err
