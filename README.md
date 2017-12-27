@@ -12,6 +12,6 @@ TODO:
 - [ ] Projections
 - [x] Read Events
     - [x] Read One Event
-    - [ ] Stream Events
+    - [x] Stream Events
 - [x] Write Events
 - [ ] User Management

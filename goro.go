@@ -6,6 +6,7 @@ package goro
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/satori/go.uuid"
@@ -47,8 +48,44 @@ func (e Events) Less(a, b int) bool {
 
 // StreamMessage contains an Event or an error
 type StreamMessage struct {
-	Event *Event
-	Error error
+	Event        *Event
+	Acknowledger Acknowledger
+	Error        error
+}
+
+// Ack acknowledges an Event or fails
+func (m StreamMessage) Ack() error {
+	if m.Acknowledger != nil {
+		return m.Acknowledger.Ack()
+	}
+
+	return errors.New("no Acknowledger set")
+}
+
+// Nack acknowledges an Event or fails
+func (m StreamMessage) Nack(action Action) error {
+	if m.Acknowledger != nil {
+		return m.Acknowledger.Nack(action)
+	}
+
+	return errors.New("no Acknowledger set")
+}
+
+// Action represents the action to take when Nacking an Event
+type Action string
+
+// Action enum
+const (
+	ActionPark  Action = "park"
+	ActionRetry        = "retry"
+	ActionSkip         = "skip"
+	ActionStop         = "stop"
+)
+
+// Acknowledger can acknowledge or Not-Acknowledge an Event in a Persistant Subscription
+type Acknowledger interface {
+	Ack() error
+	Nack(action Action) error
 }
 
 // ExpectedVersions
