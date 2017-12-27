@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"sort"
 )
 
@@ -38,17 +36,23 @@ func (w streamWriter) Write(ctx context.Context, expectedVersion int64, events .
 
 	json.NewEncoder(b).Encode(data)
 
-	resp, err := w.slinger.
+	req, err := w.slinger.
 		Sling().
 		Post(path).
 		Body(b).
 		Set("Content-Type", "application/vnd.eventstore.events+json").
 		Set("ES-ExpectedVersion", fmt.Sprintf("%d", expectedVersion)).
-		ReceiveSuccess(nil)
-
-	if resp.StatusCode != http.StatusCreated {
-		return errors.New("not created with status" + resp.Status)
+		Request()
+	if err != nil {
+		return err
 	}
 
-	return nil
+	req = req.WithContext(ctx)
+
+	resp, err := w.slinger.Sling().Do(req, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	return RelevantError(resp.StatusCode)
 }

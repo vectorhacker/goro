@@ -8,6 +8,7 @@ Goro is a [Go](http://golang.org) client library for [Event Store](http://events
 TODO:
 ---
 
+- [ ] Tests
 - [ ] Competing Consumers
 - [ ] Projections
 - [x] Read Events
