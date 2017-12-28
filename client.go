@@ -59,3 +59,15 @@ func (c Client) BackwardsReader(stream string) Reader {
 func (c Client) FowardsReader(stream string) Reader {
 	return NewForwardsReader(c, stream)
 }
+
+// CatchupSubscription creates a new catchup style subscription that
+// starts reading at an event number and continues forwards
+func (c Client) CatchupSubscription(stream string, start int64) Subscriber {
+	return NewCatchupSubscription(c, stream, start)
+}
+
+// PersistentSubscription creates a new competing consumer style subscription
+// with the given settings
+func (c Client) PersistentSubscription(stream, subscriptionName string, settings PersistentSubscriptionSettings) (Subscriber, error) {
+	return NewPersistentSubscription(c, stream, subscriptionName, settings)
+}
