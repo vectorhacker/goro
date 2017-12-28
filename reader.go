@@ -8,8 +8,8 @@ import (
 type direction string
 
 const (
-	directionForwards  direction = "foward"
-	directionBackwards           = "bacward"
+	directionForwards  direction = "forward"
+	directionBackwards           = "backward"
 )
 
 type streamReader struct {
@@ -49,9 +49,27 @@ func (r streamReader) Read(ctx context.Context, start int64, count int) ([]*Even
 
 	for len(events) != count {
 		path := fmt.Sprintf("/streams/%s/%d/%s/10", r.stream, next, r.direction)
-		_, err := r.slinger.Sling().Get(path).Set("Accept", "application/json").ReceiveSuccess(&response)
+		req, err := r.slinger.
+			Sling().
+			Get(path).
+			Set("Accept", "application/vnd.eventstore.events+json").
+			QueryStruct(embedParams{
+				Embed: "body",
+			}).
+			Request()
 		if err != nil {
-			// TODO: enrich error
+			return nil, err
+		}
+
+		req = req.WithContext(ctx)
+
+		res, err := r.slinger.Sling().Do(req, &response, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		err = RelevantError(res.StatusCode)
+		if err != nil {
 			return nil, err
 		}
 
@@ -64,5 +82,5 @@ func (r streamReader) Read(ctx context.Context, start int64, count int) ([]*Even
 			next += int64(len(events))
 		}
 	}
-	return nil, nil
+	return events, nil
 }
