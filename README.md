@@ -9,7 +9,7 @@ TODO:
 ---
 
 - [ ] Tests
-- [ ] Competing Consumers
+- [x] Competing Consumers
 - [ ] Projections
 - [x] Read Events
     - [x] Read One Event
