@@ -5,6 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
+
+	"github.com/dghubble/sling"
+	"github.com/satori/go.uuid"
 )
 
 type embedParams struct {
@@ -112,7 +116,7 @@ type PersistentSubscriptionSettings struct {
 }
 
 // NewPersistentSubscription creates a new subscription that implements the competing consumers pattern
-func NewPersistentSubscription(slinger Slinger, stream, group string, settings *PersistentSubscriptionSettings) (Subscriber, error) {
+func NewPersistentSubscription(slinger Slinger, stream, group string, settings PersistentSubscriptionSettings) (Subscriber, error) {
 	s := &persistentSubscription{
 		slinger: slinger,
 		group:   group,
@@ -121,7 +125,7 @@ func NewPersistentSubscription(slinger Slinger, stream, group string, settings *
 
 	res, err := s.slinger.
 		Sling().
-		Post(fmt.Sprintf("/subscriptions/%s/%s", stream, group)).
+		Put(fmt.Sprintf("/subscriptions/%s/%s", stream, group)).
 		BodyJSON(settings).
 		ReceiveSuccess(nil)
 	if err != nil {
@@ -132,7 +136,7 @@ func NewPersistentSubscription(slinger Slinger, stream, group string, settings *
 }
 
 // UpdatePersistentSubscription updates an existing subscription if it's persistant
-func UpdatePersistentSubscription(subscription Subscriber, newSettings *PersistentSubscriptionSettings) (Subscriber, error) {
+func UpdatePersistentSubscription(subscription Subscriber, newSettings PersistentSubscriptionSettings) (Subscriber, error) {
 	s, ok := subscription.(*persistentSubscription)
 	if !ok {
 		return nil, errors.New("not a Persistant Subscription")
@@ -153,5 +157,103 @@ func UpdatePersistentSubscription(subscription Subscriber, newSettings *Persiste
 // Subscribe implements the Subscriber interface
 func (s *persistentSubscription) Subscribe(ctx context.Context) <-chan StreamMessage {
 	stream := make(chan StreamMessage)
+
+	response := struct {
+		Events Events `json:"entries"`
+	}{}
+
+	go func() {
+		defer close(stream)
+
+		for {
+			path := fmt.Sprintf("/subscriptions/%s/%s/10", s.stream, s.group)
+			res, err := s.slinger.
+				Sling().
+				Get(path).
+				Add("Accept", "application/vnd.eventstore.atom+json").
+				QueryStruct(&embedParams{
+					Embed: "body",
+				}).
+				ReceiveSuccess(&response)
+			if err != nil {
+				stream <- StreamMessage{
+					Error: err,
+				}
+				return
+			}
+
+			err = RelevantError(res.StatusCode)
+			if err != nil {
+				stream <- StreamMessage{
+					Error: err,
+				}
+				return
+			}
+
+			sort.Sort(response.Events)
+			for _, event := range response.Events {
+				select {
+				case <-ctx.Done():
+					return
+				case stream <- StreamMessage{
+					Event: event,
+					Acknowledger: persistentSubscriptionAcknowledger{
+						eventID:          event.ID,
+						stream:           s.stream,
+						subscriptionName: s.group,
+						sling:            s.slinger.Sling(),
+					},
+				}:
+				}
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+		}
+	}()
+
 	return stream
+}
+
+type persistentSubscriptionAcknowledger struct {
+	eventID          uuid.UUID
+	stream           string
+	subscriptionName string
+	sling            *sling.Sling
+}
+
+func (a persistentSubscriptionAcknowledger) path() string {
+	path := "/subscriptions/{stream}/{subscription_name}"
+	path = strings.Replace(path, "{stream}", a.stream, -1)
+	path = strings.Replace(path, "{subscription_name}", a.subscriptionName, -1)
+	return path
+}
+
+func (a persistentSubscriptionAcknowledger) Ack() error {
+	path := a.path()
+	res, err := a.sling.Post(path + "/ack/" + a.eventID.String()).ReceiveSuccess(nil)
+
+	if err != nil {
+		return err
+	}
+
+	return RelevantError(res.StatusCode)
+}
+
+func (a persistentSubscriptionAcknowledger) Nack(action Action) error {
+	path := a.path()
+	res, err := a.sling.Post(path + "/nack/" + a.eventID.String()).QueryStruct(struct {
+		Action Action `url:"action"`
+	}{
+		Action: action,
+	}).ReceiveSuccess(nil)
+
+	if err != nil {
+		return err
+	}
+
+	return RelevantError(res.StatusCode)
 }
