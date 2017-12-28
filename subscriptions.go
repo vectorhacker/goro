@@ -37,26 +37,18 @@ func (s *catchupSubscription) Subscribe(ctx context.Context) <-chan StreamMessag
 	go func() {
 		defer close(stream)
 		next := s.start
-		count := 20
 
 		for {
-			path := fmt.Sprintf("/streams/%s/%d/forwards/%d", s.stream, next, count)
-			req, err := s.slinger.
+			path := fmt.Sprintf("/streams/%s/%d/forward/%d", s.stream, next, 10)
+			res, err := s.slinger.
 				Sling().
 				Get(path).
+				Add("Accept", "application/vnd.eventstore.atom+json").
 				Set("ES-LongPoll", "10").
 				QueryStruct(&embedParams{
 					Embed: "body",
 				}).
-				Request()
-			if err != nil {
-				stream <- StreamMessage{
-					Error: err,
-				}
-				return
-			}
-
-			res, err := s.slinger.Sling().Do(req, &response, nil)
+				ReceiveSuccess(&response)
 			if err != nil {
 				stream <- StreamMessage{
 					Error: err,
@@ -83,8 +75,12 @@ func (s *catchupSubscription) Subscribe(ctx context.Context) <-chan StreamMessag
 				}
 			}
 
-			next += int64(len(response.Events))
-			response.Events = nil
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				next += int64(len(response.Events))
+			}
 		}
 	}()
 

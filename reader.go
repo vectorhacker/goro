@@ -36,7 +36,7 @@ func NewForwardsReader(slinger Slinger, stream string) Reader {
 	}
 }
 
-func (r streamReader) Read(ctx context.Context, start int64, count int) ([]*Event, error) {
+func (r streamReader) Read(ctx context.Context, start int64, count int) (Events, error) {
 	events := Events{}
 	response := struct {
 		Events Events `json:"entries"`

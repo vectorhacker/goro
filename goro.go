@@ -34,7 +34,7 @@ type Event struct {
 	Author         Author          `json:"author,omitempty"`
 }
 
-type Events []*Event
+type Events []Event
 
 func (e Events) Len() int {
 	return len(e)
@@ -50,7 +50,7 @@ func (e Events) Less(a, b int) bool {
 
 // StreamMessage contains an Event or an error
 type StreamMessage struct {
-	Event        *Event
+	Event        Event
 	Acknowledger Acknowledger
 	Error        error
 }
@@ -104,12 +104,12 @@ type Subscriber interface {
 
 // Writer writes events to a stream
 type Writer interface {
-	Write(ctx context.Context, expectedVersion int64, events ...*Event) error
+	Write(ctx context.Context, expectedVersion int64, events ...Event) error
 }
 
 // Reader reads a couple of Events from a stream
 type Reader interface {
-	Read(ctx context.Context, start int64, count int) ([]*Event, error)
+	Read(ctx context.Context, start int64, count int) (Events, error)
 }
 
 // Slinger is something that can return a sling object

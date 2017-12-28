@@ -23,7 +23,7 @@ func TestReader(t *testing.T) {
 	generateEvents := func(count int) goro.Events {
 		events := make(goro.Events, count)
 		for i := range events {
-			events[i] = &goro.Event{
+			events[i] = goro.Event{
 				ID:   uuid.NewV4(),
 				Type: "deposit",
 				Data: []byte("{\"double\":\"trouble\"}"),
