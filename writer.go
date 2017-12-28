@@ -26,7 +26,7 @@ func NewWriter(slinger Slinger, stream string) Writer {
 }
 
 // Write implements the Writer interface. It writes events in a bulk after sorting them in version order
-func (w streamWriter) Write(ctx context.Context, expectedVersion int64, events ...*Event) error {
+func (w streamWriter) Write(ctx context.Context, expectedVersion int64, events ...Event) error {
 	b := new(bytes.Buffer)
 
 	path := fmt.Sprintf(writePath, w.stream)
