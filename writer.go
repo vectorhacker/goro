@@ -54,5 +54,5 @@ func (w streamWriter) Write(ctx context.Context, expectedVersion int64, events .
 		return err
 	}
 
-	return RelevantError(resp.StatusCode)
+	return relevantError(resp.StatusCode)
 }

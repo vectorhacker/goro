@@ -22,28 +22,45 @@ type Author struct {
 // Event represents an Event in Event Store
 // the data and Metadata must be json encoded
 type Event struct {
-	ID             uuid.UUID       `json:"eventID"`
-	Type           string          `json:"eventType"`
-	Version        int64           `json:"eventNumber"`
-	Data           json.RawMessage `json:"data,omitempty"`
-	Stream         string          `json:"streamId"`
-	Metadata       json.RawMessage `json:"metadata,omitempty"`
-	Position       int64           `json:"positionEventNumber,omitempty"`
-	PositionStream string          `json:"positionStreamId,omitempty"`
 	At             time.Time       `json:"updated,omitempty"`
 	Author         Author          `json:"author,omitempty"`
+	Stream         string          `json:"streamId,omitempty"`
+	Type           string          `json:"eventType"`
+	PositionStream string          `json:"positionStreamId,omitempty"`
+	Data           json.RawMessage `json:"data,omitempty"`
+	Metadata       json.RawMessage `json:"metadata,omitempty"`
+	ID             uuid.UUID       `json:"eventID"`
+	Version        int64           `json:"eventNumber"`
+	Position       int64           `json:"positionEventNumber,omitempty"`
 }
 
+// CreateEvent initializes a new Event with an event type, some data, metadata, and a version you
+// specify. It then creates a random uuid and sets the time it was created at.
+func CreateEvent(eventType string, data, metadata json.RawMessage, version int64) Event {
+	return Event{
+		ID:       uuid.NewV4(),
+		Type:     eventType,
+		Data:     data,
+		Metadata: metadata,
+		Version:  version,
+		At:       time.Now(),
+	}
+}
+
+// Events is an array of events that implements the sort.Interface interface.
 type Events []Event
 
+// Len implements sort.Interface
 func (e Events) Len() int {
 	return len(e)
 }
 
+// Swap implements sort.Interface
 func (e Events) Swap(a, b int) {
 	e[b], e[a] = e[a], e[b]
 }
 
+// Less implements sort.Interface
 func (e Events) Less(a, b int) bool {
 	return e[a].Version < e[b].Version
 }
@@ -125,7 +142,7 @@ func (f SlingerFunc) Sling() *sling.Sling {
 	return f()
 }
 
-func RelevantError(statusCode int) error {
+func relevantError(statusCode int) error {
 	switch statusCode {
 	case http.StatusNotFound:
 		return ErrStreamNotFound

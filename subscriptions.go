@@ -60,7 +60,7 @@ func (s *catchupSubscription) Subscribe(ctx context.Context) <-chan StreamMessag
 				return
 			}
 
-			err = RelevantError(res.StatusCode)
+			err = relevantError(res.StatusCode)
 			if err != nil {
 				stream <- StreamMessage{
 					Error: err,
@@ -132,7 +132,7 @@ func NewPersistentSubscription(slinger Slinger, stream, group string, settings P
 		return nil, err
 	}
 
-	return s, RelevantError(res.StatusCode)
+	return s, relevantError(res.StatusCode)
 }
 
 // UpdatePersistentSubscription updates an existing subscription if it's persistant
@@ -151,7 +151,7 @@ func UpdatePersistentSubscription(subscription Subscriber, newSettings Persisten
 		return nil, err
 	}
 
-	return subscription, RelevantError(res.StatusCode)
+	return subscription, relevantError(res.StatusCode)
 }
 
 // Subscribe implements the Subscriber interface
@@ -182,7 +182,7 @@ func (s *persistentSubscription) Subscribe(ctx context.Context) <-chan StreamMes
 				return
 			}
 
-			err = RelevantError(res.StatusCode)
+			err = relevantError(res.StatusCode)
 			if err != nil {
 				stream <- StreamMessage{
 					Error: err,
@@ -240,7 +240,7 @@ func (a persistentSubscriptionAcknowledger) Ack() error {
 		return err
 	}
 
-	return RelevantError(res.StatusCode)
+	return relevantError(res.StatusCode)
 }
 
 func (a persistentSubscriptionAcknowledger) Nack(action Action) error {
@@ -255,5 +255,5 @@ func (a persistentSubscriptionAcknowledger) Nack(action Action) error {
 		return err
 	}
 
-	return RelevantError(res.StatusCode)
+	return relevantError(res.StatusCode)
 }

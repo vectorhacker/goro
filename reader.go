@@ -68,7 +68,7 @@ func (r streamReader) Read(ctx context.Context, start int64, count int) (Events,
 			return nil, err
 		}
 
-		err = RelevantError(res.StatusCode)
+		err = relevantError(res.StatusCode)
 		if err != nil {
 			return nil, err
 		}
