@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/pat"
-	uuid "github.com/satori/go.uuid"
+	"github.com/satori/go.uuid"
 
 	"github.com/dghubble/sling"
 	"github.com/stretchr/testify/assert"
@@ -116,6 +116,13 @@ func TestPersistentSubscription(t *testing.T) {
 			assert.Equal(t, "test", stream)
 			assert.Equal(t, "testing", subscriptionName)
 
+			request := map[string]interface{}{}
+			err := json.NewDecoder(r.Body).Decode(&request)
+			assert.Nil(t, err)
+
+			assert.Contains(t, request, "startFrom")
+			assert.IsType(t, 1.11, request["startFrom"])
+
 			w.WriteHeader(http.StatusCreated)
 			calledCreate = true
 		})
@@ -145,7 +152,14 @@ func TestPersistentSubscription(t *testing.T) {
 			return sling.New().Base(s.URL).Client(s.Client()).New()
 		})
 
-		subscription, err := goro.NewPersistentSubscription(slinger, "test", "testing", goro.PersistentSubscriptionSettings{})
+		subscription, err := goro.NewPersistentSubscription(
+			slinger,
+			"test",
+			"testing",
+			goro.PersistentSubscriptionSettings{
+				StartFrom: 10,
+			},
+		)
 		assert.Nil(t, err)
 		assert.NotNil(t, subscription)
 

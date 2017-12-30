@@ -11,6 +11,11 @@ import (
 	"github.com/satori/go.uuid"
 )
 
+const (
+	readCount       = 10   // 10 events
+	longPollTimeout = "10" // 10 seconds
+)
+
 type embedParams struct {
 	Embed string `url:"embed,omitempty"`
 }
@@ -43,12 +48,12 @@ func (s *catchupSubscription) Subscribe(ctx context.Context) <-chan StreamMessag
 		next := s.start
 
 		for {
-			path := fmt.Sprintf("/streams/%s/%d/forward/%d", s.stream, next, 10)
+			path := fmt.Sprintf("/streams/%s/%d/forward/%d", s.stream, next, readCount)
 			res, err := s.slinger.
 				Sling().
 				Get(path).
 				Add("Accept", "application/vnd.eventstore.atom+json").
-				Set("ES-LongPoll", "10").
+				Set("ES-LongPoll", longPollTimeout).
 				QueryStruct(&embedParams{
 					Embed: "body",
 				}).
@@ -92,9 +97,9 @@ func (s *catchupSubscription) Subscribe(ctx context.Context) <-chan StreamMessag
 }
 
 type persistentSubscription struct {
-	stream  string
-	group   string
-	slinger Slinger
+	stream           string
+	subscriptionName string
+	slinger          Slinger
 }
 
 // PersistentSubscriptionSettings represents the settings for creating and updating a persistant subscripton.
@@ -116,16 +121,16 @@ type PersistentSubscriptionSettings struct {
 }
 
 // NewPersistentSubscription creates a new subscription that implements the competing consumers pattern
-func NewPersistentSubscription(slinger Slinger, stream, group string, settings PersistentSubscriptionSettings) (Subscriber, error) {
+func NewPersistentSubscription(slinger Slinger, stream, subscriptionName string, settings PersistentSubscriptionSettings) (Subscriber, error) {
 	s := &persistentSubscription{
-		slinger: slinger,
-		group:   group,
-		stream:  stream,
+		slinger:          slinger,
+		subscriptionName: subscriptionName,
+		stream:           stream,
 	}
 
 	res, err := s.slinger.
 		Sling().
-		Put(fmt.Sprintf("/subscriptions/%s/%s", stream, group)).
+		Put(fmt.Sprintf("/subscriptions/%s/%s", stream, subscriptionName)).
 		BodyJSON(settings).
 		ReceiveSuccess(nil)
 	if err != nil {
@@ -144,7 +149,7 @@ func UpdatePersistentSubscription(subscription Subscriber, newSettings Persisten
 
 	res, err := s.slinger.
 		Sling().
-		Post(fmt.Sprintf("/subscriptions/%s/%s", s.stream, s.group)).
+		Post(fmt.Sprintf("/subscriptions/%s/%s", s.stream, s.subscriptionName)).
 		BodyJSON(newSettings).
 		ReceiveSuccess(nil)
 	if err != nil {
@@ -166,7 +171,7 @@ func (s *persistentSubscription) Subscribe(ctx context.Context) <-chan StreamMes
 		defer close(stream)
 
 		for {
-			path := fmt.Sprintf("/subscriptions/%s/%s/10", s.stream, s.group)
+			path := fmt.Sprintf("/subscriptions/%s/%s/%d", s.stream, s.subscriptionName, readCount)
 			res, err := s.slinger.
 				Sling().
 				Get(path).
@@ -200,7 +205,7 @@ func (s *persistentSubscription) Subscribe(ctx context.Context) <-chan StreamMes
 					Acknowledger: persistentSubscriptionAcknowledger{
 						eventID:          event.ID,
 						stream:           s.stream,
-						subscriptionName: s.group,
+						subscriptionName: s.subscriptionName,
 						sling:            s.slinger.Sling(),
 					},
 				}:
