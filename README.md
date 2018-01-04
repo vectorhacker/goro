@@ -29,19 +29,13 @@ func main() {
     reader := client.FowardsReader("messages")
     catchupSubscription := client.CatchupSubscription("messages", 0) // start from 0
 
-    data := new(bytes.Buffer)
-    err := json.NewEncoder(data).Encode(map[string]string{
-        "body": "hello world",
-    })
-    if err != nil {
-        panic(err)
-    }
+    data := []byte("{\"message\": \"hello world\"}")
 
     // write the event
     ctx := context.Background()
     event := goro.CreateEvent(
         "message",
-        data.Bytes(),
+        data,
         nil, // nil metadata
         0,
     )
