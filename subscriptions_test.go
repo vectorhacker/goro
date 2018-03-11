@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gorilla/pat"
-	"github.com/satori/go.uuid"
 
 	"github.com/dghubble/sling"
 	"github.com/stretchr/testify/assert"
@@ -21,7 +20,7 @@ func TestCatchupSubscription(t *testing.T) {
 		events := make(goro.Events, count)
 		for i := range events {
 			events[i] = goro.Event{
-				ID:   uuid.NewV4(),
+				ID:   goro.NewUUID(),
 				Type: "deposit",
 				Data: []byte("{\"double\":\"trouble\"}"),
 			}
@@ -91,7 +90,7 @@ func TestPersistentSubscription(t *testing.T) {
 		events := make(goro.Events, count)
 		for i := range events {
 			events[i] = goro.Event{
-				ID:   uuid.NewV4(),
+				ID:   goro.NewUUID(),
 				Type: "deposit",
 				Data: []byte("{\"double\":\"trouble\"}"),
 			}

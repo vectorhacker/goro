@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/satori/go.uuid"
-
 	"github.com/dghubble/sling"
 
 	"github.com/vectorhacker/goro"
@@ -24,7 +22,7 @@ func TestReader(t *testing.T) {
 		events := make(goro.Events, count)
 		for i := range events {
 			events[i] = goro.Event{
-				ID:   uuid.NewV4(),
+				ID:   goro.NewUUID(),
 				Type: "deposit",
 				Data: []byte("{\"double\":\"trouble\"}"),
 			}

@@ -34,11 +34,17 @@ type Event struct {
 	Position       int64           `json:"positionEventNumber,omitempty"`
 }
 
+func NewUUID() uuid.UUID {
+	id, _ := uuid.NewV4()
+
+	return id
+}
+
 // CreateEvent initializes a new Event with an event type, some data, metadata, and a version you
 // specify. It then creates a random uuid and sets the time it was created at.
 func CreateEvent(eventType string, data, metadata json.RawMessage, version int64) Event {
 	return Event{
-		ID:       uuid.NewV4(),
+		ID:       NewUUID(),
 		Type:     eventType,
 		Data:     data,
 		Metadata: metadata,

@@ -12,7 +12,6 @@ import (
 	"github.com/vectorhacker/goro"
 
 	"github.com/gorilla/pat"
-	"github.com/satori/go.uuid"
 )
 
 func TestWriter(t *testing.T) {
@@ -23,13 +22,13 @@ func TestWriter(t *testing.T) {
 			Data:    d1,
 			Type:    "testevent",
 			Version: 0,
-			ID:      uuid.NewV4(),
+			ID:      goro.NewUUID(),
 		}
 		evnt2 := goro.Event{
 			Data:    d1,
 			Type:    "testevent",
 			Version: 1,
-			ID:      uuid.NewV4(),
+			ID:      goro.NewUUID(),
 		}
 
 		mux := pat.New()
