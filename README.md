@@ -1,5 +1,6 @@
 Goro
 ====
+[![Build Status](https://travis-ci.org/vectorhacker/goro.svg?branch=master)](https://travis-ci.org/vectorhacker/goro)
 
 Goro is a [Go](http://golang.org) client library for [Event Store](http://eventstore.org).
 
