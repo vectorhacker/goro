@@ -8,6 +8,7 @@ go:
 
 install:
   - go get github.com/gorilla/pat
+  - github.com/stretchr/testify/assert
   - go get ./...
 
 script:
