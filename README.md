@@ -1,5 +1,6 @@
 Goro
 ====
+[![GoDoc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat)](https://godoc.org/github.com/vectorhacker/goro)
 [![Build Status](https://travis-ci.org/vectorhacker/goro.svg?branch=master)](https://travis-ci.org/vectorhacker/goro)
 [![Go Report Card](https://goreportcard.com/badge/github.com/vectorhacker/goro)](https://goreportcard.com/report/github.com/vectorhacker/goro)
 [![Coverage Status](https://coveralls.io/repos/github/vectorhacker/goro/badge.svg?branch=master)](https://coveralls.io/github/vectorhacker/goro?branch=master)
