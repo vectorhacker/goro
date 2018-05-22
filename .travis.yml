@@ -3,11 +3,16 @@ go:
   - 1.9.x
   - 1.10.x
   - master
+  - tip
 
 install:
+  - go get golang.org/x/tools/cmd/cover
+  - go get github.com/mattn/goveralls
   - go get github.com/gorilla/pat
   - go get github.com/stretchr/testify/assert
   - go get ./...
 
 script:
   - go test -v ./...
+  - go test -v -covermode=count -coverprofile=coverage.out
+  - $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci -repotoken $COVERALLS_TOKEN
