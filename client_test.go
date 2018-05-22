@@ -42,7 +42,7 @@ func TestClient(t *testing.T) {
 		assert.NotNil(t, subscription)
 	})
 
-	t.Run("it should return a PersistantSubscription", func(t *testing.T) {
+	t.Run("it should return a PersistentSubscription", func(t *testing.T) {
 		mux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusCreated)
 		})

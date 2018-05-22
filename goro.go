@@ -107,7 +107,7 @@ const (
 	ActionStop         = "stop"
 )
 
-// Acknowledger can acknowledge or Not-Acknowledge an Event in a Persistant Subscription
+// Acknowledger can acknowledge or Not-Acknowledge an Event in a Persistent Subscription
 type Acknowledger interface {
 	Ack() error
 	Nack(action Action) error

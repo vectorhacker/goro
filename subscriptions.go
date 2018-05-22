@@ -102,7 +102,7 @@ type persistentSubscription struct {
 	slinger          Slinger
 }
 
-// PersistentSubscriptionSettings represents the settings for creating and updating a persistant subscripton.
+// PersistentSubscriptionSettings represents the settings for creating and updating a Persistent subscription.
 // You can read more about those settings in the Event Store documentation [here](https://eventstore.org/docs/http-api/4.0.2/competing-consumers/#creating-a-persistent-subscription).
 type PersistentSubscriptionSettings struct {
 	ResolveLinkTos              bool   `json:"resolveLinktos,omitempty"`
@@ -140,11 +140,11 @@ func NewPersistentSubscription(slinger Slinger, stream, subscriptionName string,
 	return s, relevantError(res.StatusCode)
 }
 
-// UpdatePersistentSubscription updates an existing subscription if it's persistant
+// UpdatePersistentSubscription updates an existing subscription if it's Persistent
 func UpdatePersistentSubscription(subscription Subscriber, newSettings PersistentSubscriptionSettings) (Subscriber, error) {
 	s, ok := subscription.(*persistentSubscription)
 	if !ok {
-		return nil, errors.New("not a Persistant Subscription")
+		return nil, errors.New("not a Persistent Subscription")
 	}
 
 	res, err := s.slinger.

@@ -15,7 +15,7 @@ import (
 )
 
 func TestWriter(t *testing.T) {
-	t.Run("it should write succesfully", func(t *testing.T) {
+	t.Run("it should write successfully", func(t *testing.T) {
 		d1 := []byte("{\"key\":\"value\"}")
 
 		evnt1 := goro.Event{
