@@ -175,7 +175,10 @@ func (s *persistentSubscription) Subscribe(ctx context.Context) <-chan StreamMes
 			res, err := s.slinger.
 				Sling().
 				Get(path).
-				Add("Accept", "application/vnd.eventstore.atom+json").
+				// By default, reading a stream via a persistent subscription will return a
+				// single event per request and will not embed the event properties as part
+				// of the response.
+				Add("Accept", "application/vnd.eventstore.competingatom+json").
 				QueryStruct(&embedParams{
 					Embed: "body",
 				}).

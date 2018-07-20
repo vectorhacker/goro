@@ -158,6 +158,8 @@ func relevantError(statusCode int) error {
 		return ErrInternalError
 	case http.StatusBadRequest:
 		return ErrInvalidContentType
+	case http.StatusNotAcceptable:
+		return ErrInvalidContentType
 	default:
 		return nil
 	}
