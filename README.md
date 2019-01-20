@@ -53,7 +53,7 @@ func main() {
         ctx := context.Background()
         events := catchupSubscription.Subscribe(ctx)
 
-        for _, event := range events {
+        for event := range events {
             fmt.Printf("%s\n", event.Data)
         }
     }()
@@ -64,7 +64,7 @@ func main() {
         panic(err)
     }
 
-    for _, event := range event {
+    for _, event := range events {
         fmt.Printf("%s\n", event.Data)
     }
 }
