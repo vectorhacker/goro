@@ -51,10 +51,10 @@ func main() {
     // subscribe to a stream of events
     go func() {
         ctx := context.Background()
-        events := catchupSubscription.Subscribe(ctx)
+        messages := catchupSubscription.Subscribe(ctx)
 
-        for event := range events {
-            fmt.Printf("%s\n", event.Data)
+        for message := range messages {
+            fmt.Printf("%s\n", messages.Event.Data)
         }
     }()
 
