@@ -14,7 +14,8 @@ type streamWriter struct {
 }
 
 const (
-	writePath = "/streams/%s"
+	writePath        = "/streams/%s"
+	eventContentType = "application/vnd.eventstore.events+json"
 )
 
 // NewWriter creates a new Writer for a stream
@@ -34,13 +35,15 @@ func (w streamWriter) Write(ctx context.Context, expectedVersion int64, events .
 	data := append(Events{}, events...)
 	sort.Sort(data)
 
-	json.NewEncoder(b).Encode(data)
+	if err := json.NewEncoder(b).Encode(data); err != nil {
+		return err
+	}
 
 	req, err := w.slinger.
 		Sling().
 		Post(path).
 		Body(b).
-		Set("Content-Type", "application/vnd.eventstore.events+json").
+		Set("Content-Type", eventContentType).
 		Set("ES-ExpectedVersion", fmt.Sprintf("%d", expectedVersion)).
 		Request()
 	if err != nil {

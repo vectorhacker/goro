@@ -38,7 +38,7 @@ type Event struct {
 // specify. It then creates a random uuid and sets the time it was created at.
 func CreateEvent(eventType string, data, metadata json.RawMessage, version int64) Event {
 	return Event{
-		ID:       Must(uuid.NewV4()),
+		ID:       uuid.Must(uuid.NewV4()),
 		Type:     eventType,
 		Data:     data,
 		Metadata: metadata,
